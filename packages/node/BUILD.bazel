@@ -1,0 +1,46 @@
+load("@aspect_rules_js//js:defs.bzl", "js_binary", "js_library")
+load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@npm//packages/node:typescript/package_json.bzl", tsc = "bin")
+load("//bazel:checks.bzl", "node_test", "tsc_test", "workspace_configs")
+
+npm_link_all_packages(name = "node_modules")
+
+js_library(
+    name = "srcs",
+    srcs = ["package.json", "tsconfig.json"] + glob(["src/**", "examples/**"]),
+    deps = [":node_modules/@kitesurf/jsrpc-types", ":node_modules/@kitesurf/script-gate"],
+)
+
+js_library(
+    name = "runtime",
+    srcs = [":srcs"],
+    data = [
+        "//packages/core/pkg:pkg",
+        "//packages/dom-shim:pkg",
+        "//packages/engine:public",
+        "//packages/page-renderer:pkg",
+        "//packages/page-script:pkg",
+        "//packages/renderer-core:wasm_pkg",
+    ],
+)
+
+js_binary(
+    name = "demo",
+    data = [":runtime"],
+    entry_point = "examples/render.ts",
+)
+
+node_test(
+    name = "test",
+    args = ["test/page.test.mjs"],
+    data = [":runtime", ":node_modules/pngjs"] + glob(["test/**"]),
+    size = "medium",
+)
+
+tsc_test(
+    name = "types",
+    bin = tsc,
+    data = [":srcs", "//:node_modules/@cloudflare/workers-types"],
+)
+
+workspace_configs()

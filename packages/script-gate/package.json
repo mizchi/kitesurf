@@ -12,7 +12,8 @@
     "./mime": "./src/mime.ts",
     "./gate": "./src/gate.ts",
     "./gateway-headers": "./src/gateway-headers.ts",
-    "./referrer-policy": "./src/referrer-policy.ts"
+    "./referrer-policy": "./src/referrer-policy.ts",
+    "./import-map": "./src/import-map.ts"
   },
   "scripts": {
     "test": "node --test test/*.test.ts",

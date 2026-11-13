@@ -12,6 +12,7 @@ import { INTERNAL_STATE_SOURCE, PAGE_SCRIPT_SOURCE } from "@kitesurf/page-script
 import type { RenderPortStub } from "@kitesurf/jsrpc-types/page-renderer";
 import type { SandboxRestrictions } from "@kitesurf/script-gate";
 import type {
+  PageScriptBootstrap,
   PageScriptEntrypoint,
   PageScriptEntrypointStub,
   PageScriptSession,
@@ -273,30 +274,31 @@ export function getOrCreatePageScript({
   const csp = Array.isArray(startupInput.csp) ? startupInput.csp : [];
   const metaCsp = Array.isArray(startupInput.metaCsp) ? startupInput.metaCsp : [];
 
-  const startupInputModule = `// AUTO-GENERATED per navigate by getOrCreatePageScript.
-// Carries parent-extracted, parent-pre-fetched per-navigate
-// inputs into the loaded worker's module-init phase.
-export const html = ${JSON.stringify(html)};
-export const url = ${JSON.stringify(url)};
-export const cookies = ${JSON.stringify(cookies)};
-export const scriptDescriptors = ${JSON.stringify(scriptDescriptors)};
-export const userAgent = ${JSON.stringify(userAgent)};
-export const referrer = ${JSON.stringify(referrer)};
-export const referrerPolicy = ${JSON.stringify(referrerPolicy)};
-export const hasClassicRegular = ${JSON.stringify(hasClassicRegular)};
-export const hasClassicAsync = ${JSON.stringify(hasClassicAsync)};
-export const moduleScriptCount = ${JSON.stringify(moduleScriptCount)};
-export const moduleScriptUrls = ${JSON.stringify(moduleScriptUrls)};
-export const jsonModuleUrls = ${JSON.stringify(jsonModuleUrls)};
-export const cdpDebug = ${JSON.stringify(cdpDebug)};
-export const lagWatchdog = ${JSON.stringify(lagWatchdog)};
-export const pixelFree = ${JSON.stringify(pixelFree)};
-export const fontDefer = ${JSON.stringify(fontDefer)};
-export const resourceDrainQuietTurns = ${JSON.stringify(resourceDrainQuietTurns)};
-export const csp = ${JSON.stringify(csp)};
-export const metaCsp = ${JSON.stringify(metaCsp)};
-export const insertedBaked = ${JSON.stringify(scriptBundle?.insertedManifest ?? [])};
-`;
+  const bootstrap = {
+    html,
+    url,
+    cookies,
+    scriptDescriptors,
+    userAgent,
+    referrer,
+    referrerPolicy,
+    hasClassicRegular,
+    hasClassicAsync,
+    moduleScriptCount,
+    moduleScriptUrls,
+    jsonModuleUrls,
+    cdpDebug,
+    lagWatchdog,
+    pixelFree,
+    fontDefer,
+    resourceDrainQuietTurns,
+    csp,
+    metaCsp,
+    insertedBaked: scriptBundle?.insertedManifest ?? [],
+  } satisfies PageScriptBootstrap;
+  const startupInputModule = Object.entries(bootstrap)
+    .map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`)
+    .join("\n");
 
   const modules: Record<
     string,

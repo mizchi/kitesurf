@@ -152,6 +152,25 @@ importers:
 
   packages/kitesurf-cli: {}
 
+  packages/node:
+    dependencies:
+      '@kitesurf/jsrpc-types':
+        specifier: workspace:*
+        version: link:../jsrpc-types
+      '@kitesurf/script-gate':
+        specifier: workspace:*
+        version: link:../script-gate
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.2
+        version: 25.9.5
+      pngjs:
+        specifier: ^7.0.0
+        version: 7.0.0
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
   packages/page-renderer:
     dependencies:
       '@kitesurf/jsrpc-types':

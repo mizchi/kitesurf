@@ -4,6 +4,8 @@
 
 // Initializes core WebAssembly on demand and exposes document, render, and font helpers.
 
+import type { DocumentScriptMetadata } from "@kitesurf/script-gate/import-map";
+
 import wasmModule from "../../core/pkg/kitesurf_core_bg.wasm";
 import type { ParsedStyleSheet } from "@kitesurf/jsrpc-types/query-dom";
 import { registerEngineWasmProbe } from "./engine-wasm-probe.ts";
@@ -110,16 +112,9 @@ export interface ScannedModulePreload {
   crossOrigin?: string | null;
 }
 
-export interface DocScan {
+export interface DocScan extends DocumentScriptMetadata {
   title: string;
   baseHref: string | null;
-  metaCsp: string[];
-  importMaps: Array<{
-    body: string;
-    scriptDomIndex: number;
-    baseHref: string | null;
-    nonce: string | null;
-  }>;
   scripts: ScannedScript[];
   iframes: ScannedIframe[];
   modulePreloads: ScannedModulePreload[];

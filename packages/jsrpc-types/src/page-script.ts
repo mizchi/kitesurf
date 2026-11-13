@@ -25,6 +25,38 @@ export interface ModulePreloadPin {
 export type { SandboxRestrictions } from "./sandbox.ts";
 export type { CommittedOrigin } from "./frame-origin.ts";
 
+/** Exports of the per-document `__ks_startup_probe_input.js` module. */
+export interface PageScriptBootstrap {
+  html: string | null;
+  url: string | null;
+  cookies: string;
+  scriptDescriptors: Array<{
+    src: string | null;
+    kind: "classic" | "module";
+    defer: boolean;
+    async: boolean;
+    body: string;
+    prefetchedLength?: number;
+    prefetchError?: string;
+  }>;
+  userAgent: string | null;
+  referrer: string;
+  referrerPolicy: string;
+  hasClassicRegular: boolean;
+  hasClassicAsync: boolean;
+  moduleScriptCount: number;
+  resourceDrainQuietTurns: number;
+  pixelFree: boolean;
+  fontDefer: boolean;
+  moduleScriptUrls: string[];
+  jsonModuleUrls: string[];
+  cdpDebug: boolean;
+  lagWatchdog: boolean;
+  csp: string[];
+  metaCsp: string[];
+  insertedBaked: Array<{ url: string; module: string; digest: string }>;
+}
+
 export interface NavigateOptions {
   cookies?: string;
   connectionId?: string;

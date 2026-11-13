@@ -35,6 +35,7 @@ copy_to_bin(
     srcs = glob(["public/**"], exclude = ["public/inspector/**", "public/rbi/**"]),
     visibility = [
         "//packages/engine/test/e2e:__pkg__",
+        "//packages/node:__pkg__",
         "//tests/pw:__pkg__",
         "//tests/wpt:__pkg__",
     ],

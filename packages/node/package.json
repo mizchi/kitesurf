@@ -1,0 +1,26 @@
+{
+  "name": "@kitesurf/node",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Node.js host for Kitesurf's PageScript and scene renderer.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@kitesurf/jsrpc-types": "workspace:*",
+    "@kitesurf/script-gate": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.2",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.6.0"
+  }
+}

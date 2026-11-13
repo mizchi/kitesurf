@@ -10,7 +10,7 @@ Kitesurf speaks the [Chrome DevTools Protocol (CDP)](https://chromedevtools.gith
 so you can use it with CDP clients such as Puppeteer.
 
 > [!IMPORTANT]
-> Kitesurf requires Cloudflare Dynamic Workers to create isolated workers for
+> The Workers backend requires Cloudflare Dynamic Workers to create isolated workers for
 > pages. Dynamic Workers are part of the [Workers Paid plan](https://developers.cloudflare.com/dynamic-workers/pricing/).
 > Local development uses `wrangler dev`. A Cloudflare Workers Paid plan is
 > required to run Kitesurf on Cloudflare.
@@ -64,6 +64,12 @@ Set `KITESURF_PORT` when port `8787` is already in use:
 ```bash
 KITESURF_PORT=8799 pnpm run dev
 ```
+
+## Run on Node.js (experimental)
+
+For an experimental Node.js API that runs page JavaScript and takes screenshots
+without starting workerd, see [Kitesurf on Node.js](packages/node/README.md).
+The Node host currently exposes its own API rather than a CDP server.
 
 ## Connect with Puppeteer
 
