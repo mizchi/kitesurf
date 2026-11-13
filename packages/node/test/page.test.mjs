@@ -214,3 +214,118 @@ test("a timed-out document initialization can be replaced", async (t) => {
   assert.equal(await page.evaluate("document.title"), "replacement");
   assert.ok((await page.screenshot()).length > 0);
 });
+
+test("evaluation returns undefined for expressions and functions without a value", async () => {
+  await using page = await createPage();
+  assert.equal(await page.evaluate("undefined"), undefined);
+  assert.equal(
+    await page.evaluate(() => {
+      document.title = "side effect";
+    }),
+    undefined,
+  );
+  assert.equal(await page.evaluate("document.title"), "side effect");
+  assert.equal(await page.evaluate("Promise.resolve(undefined)"), undefined);
+});
+
+test("session calls flush custom element upgrades before the next evaluation", async () => {
+  await using page = await createPage();
+  await page.setContent("<x-upgrade>before</x-upgrade>");
+  await page.evaluate(`customElements.define('x-upgrade', class extends HTMLElement {
+    connectedCallback() { this.textContent = 'upgraded'; }
+  }); true;`);
+  assert.equal(await page.evaluate("document.querySelector('x-upgrade').textContent"), "upgraded");
+});
+
+async function serveModules(t) {
+  const requests = [];
+  const server = createServer((req, res) => {
+    requests.push(req.url);
+    res.writeHead(200, { "content-type": "text/javascript" });
+    res.end(`export const path = ${JSON.stringify(req.url)};`);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    server.closeAllConnections();
+    return new Promise((resolve) => server.close(resolve));
+  });
+  return { url: `http://127.0.0.1:${server.address().port}/`, requests };
+}
+
+test("unmapped bare imports reject without fetching a relative URL", async (t) => {
+  const { url, requests } = await serveModules(t);
+  await using page = await createPage();
+  await page.setContent("", { url });
+  await assert.rejects(page.evaluate("import('bare')"), /Bare module specifier/);
+  assert.deepEqual(requests, []);
+});
+
+test("import maps resolve exact, prefix, and scoped mappings and block null entries", async (t) => {
+  const { url, requests } = await serveModules(t);
+  await using page = await createPage();
+  await page.setContent(
+    `<base href="/assets/">
+    <script type="importmap">{
+      "imports": {"entry":"./entry.js", "pkg/":"./pkg/", "blocked":null},
+      "scopes": {"/": {"scoped":"/scoped.js"}}
+    }</script>`,
+    { url },
+  );
+  assert.equal(await page.evaluate("import('entry').then(m => m.path)"), "/assets/entry.js");
+  assert.equal(
+    await page.evaluate("import('pkg/util.js').then(m => m.path)"),
+    "/assets/pkg/util.js",
+  );
+  assert.equal(await page.evaluate("import('scoped').then(m => m.path)"), "/scoped.js");
+  await assert.rejects(page.evaluate("import('blocked')"), /Import map blocked/);
+  assert.deepEqual(requests, ["/assets/entry.js", "/assets/pkg/util.js", "/scoped.js"]);
+});
+
+test("CSP gates import maps before they can resolve module names", async (t) => {
+  const { url, requests } = await serveModules(t);
+  await using page = await createPage();
+  await page.setContent(
+    `<meta http-equiv="Content-Security-Policy"
+      content="script-src 'self' 'nonce-allowed'">
+    <script type="importmap" nonce="blocked">{"imports":{"denied":"/denied.js"}}</script>
+    <script type="importmap" nonce="allowed">{"imports":{"permitted":"/permitted.js"}}</script>`,
+    { url },
+  );
+  await assert.rejects(page.evaluate("import('denied')"), /Bare module specifier/);
+  assert.equal(await page.evaluate("import('permitted').then(m => m.path)"), "/permitted.js");
+  assert.deepEqual(requests, ["/permitted.js"]);
+});
+
+test("a Wasm crash rejects pending calls and a new document can recover", async () => {
+  await using page = await createPage();
+  let chain = "1";
+  for (let i = 0; i < 3000; i++) chain = `o.p${i}=(${chain})`;
+  const results = await Promise.allSettled([
+    page.evaluate(`var o = {}; ${chain};`),
+    page.evaluate("new Promise(() => {})", { timeoutMs: 2_000 }),
+  ]);
+  for (const result of results) {
+    assert.equal(result.status, "rejected");
+    assert.match(result.reason.message, /crashed|memory access out of bounds/);
+  }
+  await page.setContent("<title>recovered</title>");
+  assert.equal(await page.evaluate("document.title"), "recovered");
+});
+
+test("an over-budget import map is ignored and leaves room for later maps", async (t) => {
+  const { url, requests } = await serveModules(t);
+  const oversized = Object.fromEntries(
+    Array.from({ length: 16_385 }, (_, i) => [`large${i}`, "/ignored.js"]),
+  );
+  await using page = await createPage();
+  await page.setContent(
+    `<title>loaded</title>
+    <script type="importmap">${JSON.stringify({ imports: oversized })}</script>
+    <script type="importmap">{"imports":{"valid":"/valid.js"}}</script>`,
+    { url },
+  );
+  assert.equal(await page.evaluate("document.title"), "loaded");
+  await assert.rejects(page.evaluate("import('large0')"), /Bare module specifier/);
+  assert.equal(await page.evaluate("import('valid').then(m => m.path)"), "/valid.js");
+  assert.deepEqual(requests, ["/valid.js"]);
+});

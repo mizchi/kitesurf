@@ -3,8 +3,16 @@
 // https://opensource.org/licenses/Apache-2.0
 
 import { parentPort, workerData } from "node:worker_threads";
-import type { PageScriptEntrypoint } from "@kitesurf/jsrpc-types/page-script";
+import type { PageScriptBootstrap, PageScriptEntrypoint } from "@kitesurf/jsrpc-types/page-script";
 import type { PageRendererRpc, RenderPort } from "@kitesurf/jsrpc-types/page-renderer";
+import { buildScriptGateContext } from "@kitesurf/script-gate";
+import {
+  applyImportMapGate,
+  importMapModuleSource,
+  parseImportMaps,
+  type DocumentScriptMetadata,
+  type ImportMapResolver,
+} from "@kitesurf/script-gate/import-map";
 import { pageFetch, readAsset, readFont } from "./assets.ts";
 import { Realm } from "./realm.ts";
 import type { Command, PageInit, Reply } from "./contract.ts";
@@ -34,17 +42,15 @@ const startup = {
   csp: [],
   metaCsp: [],
   insertedBaked: [],
-};
-
-const importMap = `
-export function resolveImportMap(specifier, importer) { return new URL(String(specifier), importer).href; }
-export function resolveModuleRegistryUrl(url) {
-  if (!/^https?:/.test(String(url))) throw new TypeError('Only HTTP(S) page modules are allowed');
-  return String(url);
-}
-`;
+} satisfies PageScriptBootstrap;
 
 async function createRuntime(): Promise<(command: Command) => Promise<unknown>> {
+  // The core scanner becomes available after PageScript's module initialization.
+  let resolver: ImportMapResolver;
+  const importMap: ImportMapResolver = {
+    resolveImportMap: (specifier, importer) => resolver.resolveImportMap(specifier, importer),
+    resolveModuleRegistryUrl: (url) => resolver.resolveModuleRegistryUrl(url),
+  };
   const [pageSource, shim, internalState, glue, wasm] = await Promise.all([
     readAsset("packages/page-script/dist/page-script.js"),
     readAsset("packages/dom-shim/dist/dom-shim.js"),
@@ -59,7 +65,7 @@ async function createRuntime(): Promise<(command: Command) => Promise<unknown>> 
       "internal-state.js": internalState.toString(),
       "wasm-glue.js": glue.toString(),
       "__ks_startup_probe_input.js": { exports: startup },
-      "__ks_import_map.js": importMap,
+      "__ks_import_map.js": { exports: { ...importMap } },
       "__ks_wasm_registry.js":
         'import emptyModule from "./__ks_empty.wasm"; export { emptyModule }; export const bakedWasm = {}; export const manifest = {};',
     },
@@ -81,33 +87,67 @@ async function createRuntime(): Promise<(command: Command) => Promise<unknown>> 
     },
   };
   const page = new Page(ctx, {});
+  const session = page.openSession({
+    upstream(message) {
+      if (message.event === "kitesurf.wasmTerminated") {
+        queueMicrotask(() => {
+          throw new Error(`Page engine crashed (${message.params.message})`);
+        });
+      }
+    },
+  });
   const core = await pageRealm.load("wasm-glue.js");
   const scanDocument = core.ks_scan_document;
   if (typeof scanDocument !== "function")
     throw new Error("Core Wasm does not export the HTML scanner");
-  const scan: unknown = JSON.parse(scanDocument(input.html));
-  const metaCsp =
-    typeof scan === "object" && scan !== null && "metaCsp" in scan && Array.isArray(scan.metaCsp)
-      ? scan.metaCsp.filter((value): value is string => typeof value === "string")
-      : [];
-  const navigate = await page.navigate(input.html, input.url, {
-    scriptPolicy: {
-      cspHeaders: [],
-      cspReportOnlyHeaders: [],
-      metaCsp,
+  const scan: DocumentScriptMetadata = JSON.parse(scanDocument(input.html));
+  const gate = buildScriptGateContext(input.url, { metaCsp: scan.metaCsp });
+  const maps = await applyImportMapGate(scan.importMaps, gate, input.url);
+  pageRealm.addModule(
+    "document-import-map.js",
+    importMapModuleSource(parseImportMaps(maps, input.url)),
+  );
+  const resolverModule = await pageRealm.load("document-import-map.js");
+  if (
+    typeof resolverModule.resolveImportMap !== "function" ||
+    typeof resolverModule.resolveModuleRegistryUrl !== "function"
+  )
+    throw new Error("Document module resolver is missing its exports");
+  resolver = {
+    resolveImportMap: resolverModule.resolveImportMap as ImportMapResolver["resolveImportMap"],
+    resolveModuleRegistryUrl:
+      resolverModule.resolveModuleRegistryUrl as ImportMapResolver["resolveModuleRegistryUrl"],
+  };
+  const navigate = await session.call(
+    "navigate",
+    {
+      html: input.html,
+      url: input.url,
+      opts: {
+        scriptPolicy: { cspHeaders: [], cspReportOnlyHeaders: [], metaCsp: scan.metaCsp },
+        viewportWidth: input.width,
+        viewportHeight: input.height,
+      },
     },
-    viewportWidth: input.width,
-    viewportHeight: input.height,
-  });
-  const loaded = await page.awaitLoad();
+    { t: Date.now() },
+  );
+  const loaded = await session.call("awaitLoad", {}, { t: Date.now() });
   const exceptions = [...(navigate.exceptions ?? []), ...(loaded.exceptions ?? [])];
   if (exceptions.length) throw new Error(exceptions.map((error) => error.message).join("\n"));
   let renderer: { realm: Realm; rpc: PageRendererRpc } | null = null;
 
   return async (command: Command): Promise<unknown> => {
     if (command.method === "evaluate") {
-      const result = await page.evaluate(command.expression, command.options);
+      const result = await session.call(
+        "evaluate",
+        {
+          expression: command.expression,
+          opts: command.options,
+        },
+        { t: Date.now() },
+      );
       if (!result.ok) throw new Error(result.exception.message);
+      if (result.type === "undefined") return undefined;
       if (result.serializationError) throw new Error(result.serializationError);
       return result.valueJson === undefined ? undefined : JSON.parse(result.valueJson);
     }
@@ -130,7 +170,7 @@ async function createRuntime(): Promise<(command: Command) => Promise<unknown>> 
       renderer = { realm, rpc: new Renderer(ctx, {}) };
     }
     const { realm, rpc } = renderer;
-    const source = page.makeRenderPort();
+    const source = session.makeRenderPort();
     const renderPort: RenderPort = {
       recordScene: async (args) =>
         realm.importValue(await source.recordScene(pageRealm.importValue(args))),

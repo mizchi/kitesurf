@@ -15,7 +15,8 @@
     "types": "tsc --noEmit"
   },
   "dependencies": {
-    "@kitesurf/jsrpc-types": "workspace:*"
+    "@kitesurf/jsrpc-types": "workspace:*",
+    "@kitesurf/script-gate": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.2",

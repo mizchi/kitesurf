@@ -5,36 +5,28 @@
 // @ks-declaration-twin for the synthetic sibling generated per navigation.
 // External bodies ride the classic bundle; descriptors retain their byte length.
 
-export declare const html: string | null;
-export declare const url: string | null;
-export declare const cookies: string;
-export declare const scriptDescriptors: Array<{
-  src: string | null;
-  kind: "classic" | "module";
-  defer: boolean;
-  async: boolean;
-  body: string;
-  prefetchedLength?: number;
-  prefetchError?: string;
-}>;
-export declare const userAgent: string | null;
-export declare const referrer: string;
+import type { PageScriptBootstrap } from "@kitesurf/jsrpc-types/page-script";
+
+export declare const html: PageScriptBootstrap["html"];
+export declare const url: PageScriptBootstrap["url"];
+export declare const cookies: PageScriptBootstrap["cookies"];
+export declare const scriptDescriptors: PageScriptBootstrap["scriptDescriptors"];
+export declare const userAgent: PageScriptBootstrap["userAgent"];
+export declare const referrer: PageScriptBootstrap["referrer"];
 // The document response's Referrer-Policy header, verbatim ("" = none).
-export declare const referrerPolicy: string;
-// Manifest of which user-script buckets were baked into the
-// modules-map; navigate() uses these to gate dynamic-imports.
-export declare const hasClassicRegular: boolean;
-export declare const hasClassicAsync: boolean;
-export declare const moduleScriptCount: number;
-export declare const resourceDrainQuietTurns: number;
-export declare const pixelFree: boolean;
-export declare const fontDefer: boolean;
-export declare const moduleScriptUrls: string[];
-// Module URLs the navigate baked as JSON records; the runtime loader may answer only these
-// from the module map when an import requests type "json".
-export declare const jsonModuleUrls: string[];
-export declare const cdpDebug: boolean;
-export declare const lagWatchdog: boolean;
-export declare const csp: string[];
-export declare const metaCsp: string[];
-export declare const insertedBaked: Array<{ url: string; module: string; digest: string }>;
+export declare const referrerPolicy: PageScriptBootstrap["referrerPolicy"];
+// Manifest of which user-script buckets were baked into the modules-map.
+export declare const hasClassicRegular: PageScriptBootstrap["hasClassicRegular"];
+export declare const hasClassicAsync: PageScriptBootstrap["hasClassicAsync"];
+export declare const moduleScriptCount: PageScriptBootstrap["moduleScriptCount"];
+export declare const resourceDrainQuietTurns: PageScriptBootstrap["resourceDrainQuietTurns"];
+export declare const pixelFree: PageScriptBootstrap["pixelFree"];
+export declare const fontDefer: PageScriptBootstrap["fontDefer"];
+export declare const moduleScriptUrls: PageScriptBootstrap["moduleScriptUrls"];
+// Only URLs baked as JSON may answer a native JSON module import.
+export declare const jsonModuleUrls: PageScriptBootstrap["jsonModuleUrls"];
+export declare const cdpDebug: PageScriptBootstrap["cdpDebug"];
+export declare const lagWatchdog: PageScriptBootstrap["lagWatchdog"];
+export declare const csp: PageScriptBootstrap["csp"];
+export declare const metaCsp: PageScriptBootstrap["metaCsp"];
+export declare const insertedBaked: PageScriptBootstrap["insertedBaked"];

@@ -157,6 +157,9 @@ importers:
       '@kitesurf/jsrpc-types':
         specifier: workspace:*
         version: link:../jsrpc-types
+      '@kitesurf/script-gate':
+        specifier: workspace:*
+        version: link:../script-gate
     devDependencies:
       '@types/node':
         specifier: ^25.6.2

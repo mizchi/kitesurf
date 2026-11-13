@@ -112,6 +112,11 @@ export class Realm {
     return this.copy(value) as T;
   }
 
+  addModule(name: string, source: ModuleInput): void {
+    if (this.modules.has(name)) throw new Error(`Module is already loaded: ${name}`);
+    this.sources.set(name, source);
+  }
+
   addWasm(name: string, bytes: Uint8Array): void {
     this.context.__wasmBytes = bytes;
     try {
@@ -119,7 +124,7 @@ export class Realm {
         "new WebAssembly.Module(new Uint8Array(__wasmBytes))",
         this.context,
       );
-      this.sources.set(name, { exports: { default: module } });
+      this.addModule(name, { exports: { default: module } });
     } finally {
       delete this.context.__wasmBytes;
     }

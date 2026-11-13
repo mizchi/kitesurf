@@ -8,7 +8,7 @@ npm_link_all_packages(name = "node_modules")
 js_library(
     name = "srcs",
     srcs = ["package.json", "tsconfig.json"] + glob(["src/**", "examples/**"]),
-    deps = [":node_modules/@kitesurf/jsrpc-types"],
+    deps = [":node_modules/@kitesurf/jsrpc-types", ":node_modules/@kitesurf/script-gate"],
 )
 
 js_library(

@@ -63,8 +63,14 @@ Each document generation owns one Node worker thread. Inside it, separate
 `vm.SourceTextModule` contexts load PageScript and the lazy renderer. A small
 `cloudflare:workers` module supplies the entrypoint classes. The public API owns
 document replacement; `WorkerSession` owns message correlation, deadlines, and
-termination. Rendering calls use the shared `@kitesurf/jsrpc-types` contracts.
+termination. Page calls use the same retained session (`openSession` and `call`)
+as Workers, including method-entry hooks and Wasm crash notifications. Startup
+inputs and render ports use the shared `@kitesurf/jsrpc-types` contracts.
 Render-port data is copied into the receiving context, including Wasm byte buffers.
+
+Import-map parsing, resolution, limits, and CSP checks come from
+`@kitesurf/script-gate/import-map`, shared with the Workers host. Each map uses
+the base URL captured by the Rust HTML scanner.
 
 PageScript's existing source-based script plan runs page scripts and evaluation
 through Boa. This host does not use the Workers engine's navigation-time native
@@ -88,7 +94,7 @@ pnpm run check
 
 The hermetic Node tests use inline markup and a loopback HTTP server. They check
 script execution, shared DOM state, concurrent promises and errors, relative
-resources, module imports, meta CSP, image pixels, page separation, invalid input,
-navigation races, timeout recovery during evaluation and initialization, and
-worker shutdown. They start no workerd processes and make no external network
-requests.
+resources, module imports and import maps, meta CSP, custom element upgrades,
+undefined results, image pixels, page separation, invalid input, navigation
+races, timeout and Wasm crash recovery, and worker shutdown. They start no
+workerd processes and make no external network requests.
