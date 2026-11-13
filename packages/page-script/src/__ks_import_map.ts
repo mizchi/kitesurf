@@ -4,7 +4,9 @@
 
 // @ks-declaration-twin for the runtime-resolved sibling `./__ks_import_map.js`.
 
-export declare function resolveImportMap(specifier: unknown, importer: string): string;
+import type { ImportMapResolver } from "@kitesurf/script-gate/import-map";
+
+export declare const resolveImportMap: ImportMapResolver["resolveImportMap"];
 
 // Throws for a name outside http(s): the registry also holds this isolate's own modules.
-export declare function resolveModuleRegistryUrl(url: unknown): string;
+export declare const resolveModuleRegistryUrl: ImportMapResolver["resolveModuleRegistryUrl"];

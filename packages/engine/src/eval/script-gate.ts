@@ -10,6 +10,11 @@ import {
   scriptGateIsNoop,
   type ScriptGateContext,
 } from "@kitesurf/script-gate";
+export {
+  applyImportMapGate,
+  documentBaseUrl,
+  type GatedImportMap,
+} from "@kitesurf/script-gate/import-map";
 import type { DocScan, ParentScriptDescriptor } from "../wasm.ts";
 
 export type { ScriptGateContext };
@@ -31,15 +36,6 @@ export function documentGateContext(
   });
 }
 
-export function documentBaseUrl(pageUrl: string, baseHref: string | null | undefined): string {
-  if (!baseHref) return pageUrl;
-  try {
-    return new URL(baseHref, pageUrl || undefined).toString();
-  } catch {
-    return pageUrl;
-  }
-}
-
 export function resolveScriptUrl(src: string, baseUrl: string): string | null {
   if (!src) return null;
   try {
@@ -47,47 +43,6 @@ export function resolveScriptUrl(src: string, baseUrl: string): string | null {
   } catch {
     return null;
   }
-}
-
-export interface GatedImportMap {
-  source: string;
-  baseUrl: string;
-  scriptDomIndex: number;
-}
-
-export async function applyImportMapGate(
-  importMaps: readonly DocScan["importMaps"][number][],
-  gate: ScriptGateContext,
-  pageUrl: string,
-): Promise<GatedImportMap[]> {
-  const out: GatedImportMap[] = [];
-  for (const map of importMaps) {
-    if (!scriptGateIsNoop(gate)) {
-      const decision = await checkScriptBeforeFetch(gate, {
-        url: null,
-        nonce: map.nonce,
-        body: map.body,
-        runtimeInserted: false,
-        module: false,
-      });
-      if (decision.reportOnly) {
-        console.warn(`[kitesurf-csp] ${decision.reportOnly}`);
-      }
-      if (!decision.allowed) {
-        console.warn(
-          `[kitesurf-csp] blocked (${decision.reason ?? "csp"}) import map: ` +
-            (decision.message ?? "blocked by policy"),
-        );
-        continue;
-      }
-    }
-    out.push({
-      source: map.body,
-      baseUrl: documentBaseUrl(pageUrl, map.baseHref),
-      scriptDomIndex: map.scriptDomIndex,
-    });
-  }
-  return out;
 }
 
 export async function applyPreFetchScriptGate(
